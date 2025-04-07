@@ -1,29 +1,29 @@
 #!/bin/bash
 
-# This script will deploy a Google Cloud VM with specific requirements
-
-# Set project
 PROJECT_ID="my-cloud-dev-project"
-ZONE="us-central1-a"
-INSTANCE_NAME="my-instance"
+ZONE="europe-central2-c"
+INSTANCE_NAME="kareem-vm"
 
-# Create VM with 2 vCPUs, 8GB RAM, and 250GB storage
 gcloud compute instances create $INSTANCE_NAME \
   --zone=$ZONE \
   --project=$PROJECT_ID \
-  --image-family=ubuntu-2004-lts \
-  --image-project=ubuntu-os-cloud \
-  --machine-type=n1-standard-2 \
-  --boot-disk-size=250GB \
-  --tags=http-server,https-server
+  --image-family=debian-12 \
+  --image-project=debian-cloud \
+  --machine-type=n1-standard-1 \
+  --tags=http-server,https-server \
+  --metadata=startup-script='#! /bin/bash
+        apt update
+        apt install -y nginx
+        systemctl start nginx
+        systemctl enable nginx
+    '
 
-# Reserve a static external IP address
-gcloud compute addresses create my-static-ip --region=$ZONE
+gcloud compute firewall-rules create default-allow-http \
+  --allow tcp:80 \
+  --target-tags=http-server
 
-# Create a firewall rule to allow HTTP and SSH access
-gcloud compute firewall-rules create default-allow-http-ssh \
-  --allow=tcp:22,tcp:80 \
-  --target-tags=http-server,https-server \
-  --description="Allow HTTP and SSH access"
+gcloud compute firewall-rules create default-allow-https \
+  --allow tcp:443 \
+  --target-tags=https-server
 
-echo "Deployment complete. VM and firewall rule are set up!"
+gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)'
